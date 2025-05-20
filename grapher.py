@@ -1,4 +1,3 @@
-import os
 import re
 import random
 import numpy as np
@@ -34,7 +33,7 @@ def read_profile_csv(fp: Path) -> pd.DataFrame:
     for i,line in enumerate(lines):
         if "Lateral" in line:
             hdr  = [c.strip() for c in line.split(",") if c.strip()]
-            data = [l.split(",")[:len(hdr)] for l in lines[i+1:] if l.strip()]
+            data = [line.split(",")[:len(hdr)] for line in lines[i+1:] if line.strip()]
             break
     else:
         raise ValueError(f"No header in {fp}")
@@ -46,13 +45,14 @@ def read_profile_csv(fp: Path) -> pd.DataFrame:
 
 def smooth(y):
     y_med = medfilt(y, kernel_size=MEDIAN_KERNEL)
-    wl = min(SAV_GOLAY_WINDOW, len(y_med) - (1 - len(y_med)%2))
-    if wl%2==0: wl-=1
-    if wl < SAV_GOLAY_POLY+2 or wl<3:
+    wl = min(SAV_GOLAY_WINDOW, len(y_med) - (1 - len(y_med) % 2))
+    if wl % 2 == 0:
+        wl -= 1
+    if wl < SAV_GOLAY_POLY + 2 or wl < 3:
         return y_med
     try:
         return savgol_filter(y_med, window_length=wl, polyorder=SAV_GOLAY_POLY)
-    except:
+    except Exception:
         return y_med
 
 def detect_peaks(x,y_s):
@@ -94,8 +94,8 @@ def analyze_pair(nem_df, iso_df):
             crater_id += 1
             continue
 
-        p0, p1 = peaks[idx], peaks[idx+1]
-        l, r = p0, p1  # crater window = peak-tops
+        p0, p1 = peaks[idx], peaks[idx + 1]
+        left_idx, right_idx = p0, p1  # crater window = peak-tops
 
         # determine feet only for baseline fitting
         f0 = find_foot(y_n_s, p0, -1)
@@ -111,8 +111,8 @@ def analyze_pair(nem_df, iso_df):
         coeff = np.polyfit(Xb, Yb, deg=BASELINE_POLY_DEG)
         baseline_fn = np.poly1d(coeff)
 
-        xs = x_n[l:r+1]
-        yn = y_n_s[l:r+1]
+        xs = x_n[left_idx:right_idx + 1]
+        yn = y_n_s[left_idx:right_idx + 1]
         yi = np.interp(xs, x_i, y_i_s)
         bl = baseline_fn(xs)
         valley_idx  = int(np.argmin(yn))
@@ -126,8 +126,8 @@ def analyze_pair(nem_df, iso_df):
 
         craters.append({
             "crater"       : crater_id,
-            "x_l_cm"       : x_n[l],
-            "x_r_cm"       : x_n[r],
+            "x_l_cm"       : x_n[left_idx],
+            "x_r_cm"       : x_n[right_idx],
             "foot0_cm"     : x_n[f0],
             "foot1_cm"     : x_n[f1],
             "thickness_um" : thick,
@@ -181,7 +181,8 @@ def plot_pair(name,nem_df,iso_df,peaks,craters,y_n_s,y_i_s,show,outp):
     ax.legend(fontsize=12, loc="best")
     fig.tight_layout()
     fig.savefig(outp, bbox_inches="tight")
-    if show: plt.show()
+    if show:
+        plt.show()
     plt.close(fig)
 
     
@@ -192,7 +193,8 @@ def main():
     groups = {}
     for f in files:
         m = re.match(r"(.+?)\s*(\d+\.?\d*)[Cc]", f.stem)
-        if not m: continue
+        if not m:
+            continue
         base, T = m.group(1).strip(), float(m.group(2))
         groups.setdefault(base,[]).append((T,f))
 
